@@ -1,6 +1,0 @@
-Method,Test Acc. (%),Grad-CAM Spearman rho,Calibration/Search Time
-Baseline (FP32),81.42%,1.000,0.0 s
-Uniform,79.00%,0.976,0.0 s
-AdaRound,80.12%,0.925,2.5 h
-BRECQ,80.64%,0.932,4.0 h
-EAQ (ours),80.37%,0.994,45.2 s
