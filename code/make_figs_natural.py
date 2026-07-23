@@ -12,7 +12,7 @@ plt.rcParams.update({
 })
 
 R = "./results/"
-F = "./paper/figs/"
+F = "./results/figs/"
 os.makedirs(F, exist_ok=True)
 
 METH = ["Saliency", "IG", "GradCAM", "Occlusion"]

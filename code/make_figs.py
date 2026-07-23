@@ -12,7 +12,10 @@ plt.rcParams.update({
     "font.size": 11, "font.family": "serif", "axes.grid": True,
     "grid.alpha": 0.3, "figure.dpi": 150, "savefig.bbox": "tight",
     "axes.spines.top": False, "axes.spines.right": False})
-R = "../results/"; F = "../figs/"
+R = "./results/"
+F = "./results/figs/"
+import os
+os.makedirs(F, exist_ok=True)
 METH = ["Saliency", "IG", "GradCAM", "Occlusion"]
 CMAP = {"Saliency": "#1f77b4", "IG": "#d62728",
         "GradCAM": "#2ca02c", "Occlusion": "#9467bd"}
