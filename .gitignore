@@ -1,0 +1,6 @@
+.DS_Store
+paper/*.aux
+paper/*.log
+test.log
+__pycache__/
+*.pyc

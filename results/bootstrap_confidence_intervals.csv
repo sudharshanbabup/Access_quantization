@@ -1,0 +1,5 @@
+Dataset,Budget,Method,EAQ Mean,Uniform Mean,Mean Gain,95% CI Lower,95% CI Upper
+CIFAR-10,5-bit,Saliency,0.5832,0.5709,0.0124,0.0064,0.0186
+CIFAR-10,5-bit,IG,0.7949,0.7753,0.0196,0.0138,0.0256
+CIFAR-10,5-bit,GradCAM,0.9692,0.9638,0.0055,-0.0007,0.0127
+CIFAR-10,5-bit,Occlusion,0.9125,0.9066,0.0059,-0.0148,0.0288

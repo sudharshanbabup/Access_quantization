@@ -1,0 +1,13 @@
+Dataset,Bit-Width,Model Size (KB),Latency (ms),Relative Energy
+CIFAR-10,32,1205.7,1.52,1.0
+CIFAR-10,8,301.4,0.67,0.25
+CIFAR-10,5,188.4,0.56,0.156
+CIFAR-10,4,150.7,0.52,0.125
+CIFAR-10,3,113.0,0.49,0.094
+CIFAR-10,2,75.4,0.45,0.062
+ImageNette,32,45662.2,14.74,1.0
+ImageNette,8,11415.5,6.45,0.25
+ImageNette,5,7134.7,5.41,0.156
+ImageNette,4,5707.8,5.07,0.125
+ImageNette,3,4280.8,4.72,0.094
+ImageNette,2,2853.9,4.37,0.062

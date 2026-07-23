@@ -1,0 +1,131 @@
+\section{Preliminaries and Problem Formulation}
+\label{sec:prelim}
+
+\subsection{Attribution Methods as Maps of the Parameters}
+We treat every post-hoc attribution as a deterministic map from an input
+$\bx$ and the parameters $\btheta$ to a heatmap $\bvphi(\bx;\btheta)\in\R^{d}$.
+For the target class $c=\argmax_k S_k(\bx;\btheta)$ we consider four
+representative methods spanning the gradient/perturbation and
+local/class-discriminative axes.
+
+\paragraph{Vanilla saliency \cite{simonyan2014saliency}}
+\begin{equation}
+\bvphi^{\mathrm{S}}(\bx;\btheta)=\bigl|\nabla_{\bx}S_c(\bx;\btheta)\bigr|,
+\label{eq:sal}
+\end{equation}
+the element-wise magnitude of the input gradient.
+
+\paragraph{Integrated Gradients \cite{sundararajan2017ig}}
+With baseline $\bx'$ (here $\bx'=\bm 0$),
+\begin{equation}
+\varphi^{\mathrm{IG}}_i(\bx;\btheta)=(x_i-x'_i)\!\int_{0}^{1}\!
+\frac{\partial S_c\!\bigl(\bx'+\alpha(\bx-\bx');\btheta\bigr)}{\partial x_i}\,
+\mathrm d\alpha,
+\label{eq:ig}
+\end{equation}
+approximated by an $n$-point Riemann sum. IG satisfies \emph{completeness},
+$\sum_i\varphi^{\mathrm{IG}}_i=S_c(\bx)-S_c(\bx')$.
+
+\paragraph{Grad-CAM \cite{selvaraju2017gradcam}}
+Let $\bm A^{k}\in\R^{u\times v}$ be the $k$-th feature map of the last
+convolutional block and
+$\alpha_c^{k}=\tfrac{1}{uv}\sum_{i,j}\partial S_c/\partial A^{k}_{ij}$. Then
+\begin{equation}
+\bvphi^{\mathrm{GC}}(\bx;\btheta)=\ReLU\!\Bigl(\textstyle\sum_{k}\alpha_c^{k}
+\bm A^{k}\Bigr),
+\label{eq:gradcam}
+\end{equation}
+bilinearly up-sampled to $H\times W$.
+
+\paragraph{Occlusion \cite{zeiler2014visualizing}}
+For a mask $\bm m_p$ over region $p$,
+\begin{equation}
+\varphi^{\mathrm{Occ}}_p(\bx;\btheta)=\bigl[S_c(\bx;\btheta)-
+S_c(\bx\odot(1-\bm m_p);\btheta)\bigr]_{+}.
+\label{eq:occ}
+\end{equation}
+
+All maps are min--max normalised to $[0,1]$ so that methods of differing native
+scale are compared on common footing.
+
+\subsection{Compression Operators}
+\begin{definition}[Uniform symmetric quantization]
+For a weight tensor $\bW$ with dynamic range $R=\max|\bW|$ and bit-width $b$,
+let $q_{\max}=2^{\,b-1}-1$ and step $\Delta_q=R/q_{\max}$. Then
+\begin{equation}
+Q_b(\bW)=\Delta_q\cdot\mathrm{clip}\!\Bigl(\Bigl\lfloor\tfrac{\bW}{\Delta_q}
+\Bigr\rceil,-q_{\max}-1,q_{\max}\Bigr),
+\label{eq:quant}
+\end{equation}
+where $\lfloor\cdot\rceil$ is round-to-nearest.
+\end{definition}
+
+\begin{definition}[Global magnitude pruning]
+Given target sparsity $s\in[0,1)$, let $\tau_s$ be the $s$-quantile of
+$\{|\theta_i|\}$. Then $P_s(\btheta)=\btheta\odot\bm 1[\,|\btheta|>\tau_s\,]$.
+\end{definition}
+
+Both operators yield $\tilde\btheta=\Cop(\btheta)$ with
+$\Delta\btheta=\tilde\btheta-\btheta$; quantization perturbs \emph{every}
+weight by a bounded amount, whereas pruning perturbs a \emph{subset} by their
+full value.
+
+\subsection{Fidelity, Localisation and Faithfulness}
+We quantify the effect of compression on explanations through three families
+of metrics. Let $\bvphi=\bvphi(\bx;\btheta)$ and $\tilde\bvphi=\bvphi(\bx;
+\tilde\btheta)$.
+
+\emph{(i) Model-vs-model fidelity} measures how much the explanation
+\emph{changed}:
+\begin{align}
+F_{\rho}&=\corr_{\mathrm{Spearman}}(\bvphi,\tilde\bvphi),\quad
+F_{r}=\corr_{\mathrm{Pearson}}(\bvphi,\tilde\bvphi),\\
+F_{\mathrm{IoU}}&=\frac{|\mathcal T_k(\bvphi)\cap\mathcal T_k(\tilde\bvphi)|}
+{|\mathcal T_k(\bvphi)\cup\mathcal T_k(\tilde\bvphi)|},\quad
+F_{\mathrm{SSIM}}=\mathrm{SSIM}(\bvphi,\tilde\bvphi),
+\end{align}
+where $\mathcal T_k(\cdot)$ is the set of top-$k$ salient pixels
+($k=20\%$). $F_\rho=1$ means the ranking of pixel importances is unchanged.
+
+\emph{(ii) Localisation vs.\ ground truth} exploits the fact that our benchmark
+provides a binary object mask $\bm M$: for the compressed map,
+\begin{equation}
+\mathrm{IoU}_{\mathrm{GT}}=\frac{|\mathcal T_k(\tilde\bvphi)\cap\bm M|}
+{|\mathcal T_k(\tilde\bvphi)\cup\bm M|},\quad
+\mathrm{PG}=\bm 1\!\bigl[\argmax\tilde\bvphi\in\bm M\bigr],
+\end{equation}
+the top-$k$ overlap with, and pointing-game hit rate inside, the true object.
+
+\emph{(iii) Faithfulness} measures whether the map identifies pixels the model
+actually uses, via the deletion curve \cite{petsiuk2018rise}: pixels are removed
+in descending saliency order and the area under the target-probability curve is
+recorded; a \emph{lower} deletion AUC indicates a more faithful map. Two
+complementary faithfulness summaries, standard in sequence and regression
+explanation studies \cite{samek2017evaluating}, are also supported by our
+protocol: the \emph{Area Over the Perturbation Curve} (AOPC), the mean drop in
+target probability as the most-relevant regions are progressively removed
+(higher is more faithful), and the \emph{Ablation Percentage Threshold} (APT),
+the fraction of features that must be removed to drive the prediction below a
+fixed confidence.
+
+\emph{(iv) Sample-level consistency.} Metrics (i)--(iii) report dataset averages,
+which can mask heavy-tailed behaviour across individual inputs. To characterise
+the \emph{distribution} of explanation quality we additionally report the
+skewness ($\mathrm{AUC\ Skew}$) and excess kurtosis ($\mathrm{AUC\ Kurt}$) of the
+per-sample score-drop AUC. A near-zero skew and kurtosis indicate that
+compression degrades explanations uniformly across samples, whereas large values
+flag a subpopulation of inputs whose explanations collapse well before the
+dataset mean would suggest.
+
+\begin{definition}[Explanation fidelity of a compression]
+For a fixed method and metric $F\!\in\![0,1]$ and a distribution $\mathcal D$
+of inputs, the fidelity of compression level $\ell$ is
+\begin{equation}
+\mathcal F(\ell)=\E_{\bx\sim\mathcal D}\,F\!\bigl(\bvphi(\bx;\btheta),
+\bvphi(\bx;\Cop_\ell(\btheta))\bigr).
+\end{equation}
+\end{definition}
+
+The central objects of study are the profiles $\mathcal F(b)$ (quantization)
+and $\mathcal F(s)$ (pruning), and the design of a compression operator that
+keeps $\mathcal F$ high at a given budget.

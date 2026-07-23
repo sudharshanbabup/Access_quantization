@@ -1,0 +1,192 @@
+\section{Explanation-Aware Quantization}
+\label{sec:eaq}
+
+The theory of Section~\ref{sec:theory} shows that the attribution distortion is
+governed by \emph{layer-wise} quantities: the error injected into layer $l$ is
+amplified by that layer's contribution to the amplification factor $\Lambda$.
+Uniform quantization ignores this heterogeneity and spends the same precision on
+every layer. We now derive the precision allocation that minimises explanation
+distortion at a fixed average bit budget.
+
+\subsection{Distortion Model}
+Under high-resolution quantization, the error power injected into layer $l$ at
+bit-width $b_l$ is $D_l\!\approx\! c\,\sigma_l^2\,2^{-2b_l}$, where
+$\sigma_l^2=\tfrac1{n_l}\norm{\bW_l}_F^2$ is the mean weight energy and $c$ a
+constant (Lemma~\ref{lem:quant} remark). Propagating this error to the
+attribution through the layer sensitivity $\Lambda_l=\prod_{k\ne l}\norm{\bW_k}_2$
+(Theorem~\ref{thm:lipschitz}), the expected explanation distortion is, to first
+order, additive across layers:
+\begin{equation}
+\mathcal D(\bm b)\;=\;\sum_{l=1}^{L}\omega_l\,2^{-2b_l},\qquad
+\omega_l\;\propto\;\Lambda_l^2\,\sigma_l^2 .
+\label{eq:distortion}
+\end{equation}
+The weight $\omega_l$ is the \emph{explanation sensitivity} of layer $l$: it is
+large when the layer both carries energy and is strongly amplified. In practice
+we estimate $\omega_l$ by a first-order Taylor relevance
+$\hat\omega_l=\E_{\bx}\bigl[\,\lVert\,|\bW_l|\odot|\nabla_{\bW_l}\mathcal L|\,
+\rVert_1\bigr]$, which captures both magnitude and loss-sensitivity and requires
+only a handful of mini-batches. The model \eqref{eq:distortion} assumes a
+\emph{uniform} error-decay exponent (the $2^{-2b_l}$ high-resolution rate) for
+every layer; Section~\ref{sec:eaq-general} relaxes this to layer-specific
+exponents and shows that the uniform choice is the special case $\beta_l\equiv2$.
+
+\subsection{Optimal Bit Allocation}
+
+\begin{theorem}[Reverse water-filling allocation]
+\label{thm:waterfill}
+The continuous relaxation
+\begin{equation}
+\min_{\bm b}\;\sum_{l}\omega_l 2^{-2b_l}\quad\text{s.t.}\quad
+\frac1L\sum_l b_l=\bar B
+\label{eq:opt}
+\end{equation}
+has the unique solution
+\begin{equation}
+\boxed{\;b_l^{\star}=\bar B+\tfrac12\log_2\!\Bigl(\frac{\omega_l}{\bar\omega_G}
+\Bigr)\;},\qquad
+\bar\omega_G=\Bigl(\prod_{k}\omega_k\Bigr)^{1/L},
+\label{eq:alloc}
+\end{equation}
+where $\bar\omega_G$ is the geometric mean of the sensitivities.
+\end{theorem}
+
+\begin{proof}
+Form the Lagrangian $\mathcal L(\bm b,\lambda)=\sum_l\omega_l2^{-2b_l}+
+\lambda\bigl(\sum_l b_l-L\bar B\bigr)$. Stationarity gives
+$\partial\mathcal L/\partial b_l=-2\ln2\,\omega_l2^{-2b_l}+\lambda=0$, hence
+$2^{-2b_l}=\lambda/(2\ln2\,\omega_l)$ and
+$b_l=\tfrac12\log_2\!\bigl(2\ln2\,\omega_l/\lambda\bigr)$. Imposing the budget
+$\sum_l b_l=L\bar B$ determines $\lambda$: summing the last expression and solving,
+$\tfrac12\log_2(2\ln2/\lambda)=\bar B-\tfrac1{2L}\sum_k\log_2\omega_k$.
+Back-substituting yields
+$b_l^\star=\bar B+\tfrac12\bigl(\log_2\omega_l-\tfrac1L\sum_k\log_2\omega_k\bigr)$,
+which is \eqref{eq:alloc}. The objective is strictly convex in $\bm b$
+(each $2^{-2b_l}$ is convex and they are summed with positive weights), so the
+stationary point is the unique global minimiser.
+\end{proof}
+
+Equation~\eqref{eq:alloc} is a \emph{reverse water-filling}: layers whose
+sensitivity exceeds the geometric mean receive more than $\bar B$ bits, those
+below receive fewer, and a one-octave (factor-$2$) change in sensitivity shifts
+the allocation by exactly half a bit. This is the explanation-preserving analogue
+of rate--distortion bit allocation in transform coding. In practice we clip
+$b_l^\star$ to an integer box $[b_{\min},b_{\max}]$ and re-project onto the budget
+by a short bisection, which is the box-constrained water-filling solution.
+
+\begin{remark}[Integer-rounding optimality]
+\label{rem:integer}
+Theorem~\ref{thm:waterfill} solves the continuous relaxation; deployable
+bit-widths are integers. Because the objective $\sum_l\omega_l2^{-2b_l}$ is
+separable and convex and the budget constraint is linear, the integer minimiser
+under the box $[b_{\min},b_{\max}]$ is obtained by a greedy marginal-gain
+assignment: starting from $b_{\min}$ everywhere, repeatedly add one bit to the
+layer with the largest current marginal distortion reduction
+$\omega_l(2^{-2b_l}-2^{-2(b_l+1)})=\tfrac34\omega_l2^{-2b_l}$ until the budget is
+met. Since the marginal gains are strictly decreasing in $b_l$, this greedy rule
+is exactly optimal over integer allocations (a discrete water-filling), and the
+rounding of Algorithm~\ref{alg:eaq} coincides with it up to the re-projection
+step; the per-layer rounding gap is at most half a bit and never violates the
+budget.
+\end{remark}
+
+\subsection{Generalised Layer-Specific Rate--Distortion Model}
+\label{sec:eaq-general}
+The high-resolution model \eqref{eq:distortion} assigns every layer the same
+error-decay exponent $2^{-2b_l}$. Empirically, however, the per-layer distortion
+of a real quantizer decays at a layer-dependent rate: different depths,
+activation dynamics and tensor shapes yield empirical exponents $\beta_l$ that
+depart from the ideal value of $2$, a phenomenon recent mixed-precision
+rate--distortion analyses term \emph{distortion-model mismatch}
+\cite{ranjan2025mixqvit,li2024rdkv}. Forcing a single exponent can misallocate
+the budget---occasionally below the quality of plain uniform quantization. We
+therefore generalise \eqref{eq:distortion} to
+\begin{equation}
+\mathcal D(\bm b)\;=\;\sum_{l=1}^{L}\omega_l\,2^{-\beta_l b_l},
+\label{eq:distortion-gen}
+\end{equation}
+where $\beta_l>0$ is estimated per layer by a short pre-computation---quantizing
+layer $l$ at two or three probe bit-widths and regressing $\log\mathcal D_l$ on
+$b_l$. Repeating the Lagrangian argument of Theorem~\ref{thm:waterfill} on
+\eqref{eq:distortion-gen} with $\partial\mathcal D/\partial b_l=
+-\beta_l\ln2\,\omega_l2^{-\beta_l b_l}+\lambda=0$ gives the generalised optimal
+allocation
+\begin{equation}
+\boxed{\;b_l^{\star}=\frac{1}{\beta_l}\Bigl[\log_2\!\bigl(\omega_l\,\beta_l\ln2
+\bigr)-\log_2\lambda\Bigr]\;},
+\label{eq:alloc-gen}
+\end{equation}
+with the multiplier $\lambda$ fixed by the budget $\tfrac1L\sum_l b_l=\bar B$
+through a one-dimensional bisection. Setting $\beta_l\equiv2$ recovers
+\eqref{eq:alloc} exactly, so \eqref{eq:alloc-gen} is a strict generalisation:
+layers with a \emph{faster} empirical decay (larger $\beta_l$) need fewer bits to
+reach the same distortion and are down-weighted accordingly, which prevents the
+mismatch failure mode and aligns the allocation with modern rate--distortion
+schedulers \cite{li2024rdkv}. Algorithm~\ref{alg:eaq} uses the uniform form by
+default and the generalised form when probe measurements of $\beta_l$ are
+available.
+
+\subsection{Algorithm}
+Algorithm~\ref{alg:eaq} summarises EAQ. It requires only a forward/backward pass
+over a few calibration batches to estimate $\hat\omega_l$, followed by a
+closed-form allocation and a single quantization pass---no retraining. Unlike
+ECQ$^{\mathrm x}$ \cite{becking2022ecq} and the transformer- and
+imitation-learning schemes of Table~\ref{tab:xaicomp}, which spend their
+relevance signal on \emph{preserving accuracy}, EAQ's objective
+\eqref{eq:distortion} is the \emph{explanation distortion} itself; accuracy gains
+(Section~\ref{sec:results}) arise as a by-product of protecting the same
+high-sensitivity layers.
+
+\begin{algorithm}[!t]
+\caption{Explanation-Aware Quantization (EAQ)}
+\label{alg:eaq}
+\begin{algorithmic}[1]
+\REQUIRE trained parameters $\btheta$, calibration set $\mathcal B$, budget
+$\bar B$, box $[b_{\min},b_{\max}]$
+\ENSURE mixed-precision parameters $\tilde\btheta$
+\STATE $\hat\omega_l\leftarrow\frac1{|\mathcal B|}\sum_{\bx\in\mathcal B}
+\lVert\,|\bW_l|\odot|\nabla_{\bW_l}\mathcal L(\bx)|\,\rVert_1$ \quad$\forall l$
+\hfill{\small\textit{// estimate layer sensitivities}}
+\STATE $b_l\leftarrow\bar B+\tfrac12\bigl(\log_2\hat\omega_l-\tfrac1L\sum_k
+\log_2\hat\omega_k\bigr)$ \quad$\forall l$
+\hfill{\small\textit{// optimal allocation, Thm.~\ref{thm:waterfill}}}
+\STATE $b_l\leftarrow\mathrm{clip}(b_l,b_{\min},b_{\max})$
+\hfill{\small\textit{// enforce hardware bit range}}
+\WHILE{$|\tfrac1L\sum_l\lfloor b_l\rceil-\bar B|>0$}
+  \STATE $b_l\leftarrow\mathrm{clip}\bigl(b_l-(\tfrac1L\sum_k\lfloor b_k\rceil
+  -\bar B),\,b_{\min},b_{\max}\bigr)$
+  \hfill{\small\textit{// re-project onto budget}}
+\ENDWHILE
+\STATE $\tilde\bW_l\leftarrow Q_{\lfloor b_l\rceil}(\bW_l)$ \quad$\forall l$
+\hfill{\small\textit{// quantize each layer at its bit-width}}
+\STATE \textbf{return} $\tilde\btheta$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Computational Complexity}
+\label{sec:complexity}
+To demonstrate the efficiency of EAQ, we analyse the time and space complexity of its components relative to other quantization schemes in Table~\ref{tab:complexity}.
+
+\begin{table}[!h]
+\caption{Computational Complexity Comparison of Quantization Schemes ($P$ parameters, $L$ layers, $N_{\mathrm{cal}}$ calibration samples, $N_{\mathrm{iter}}$ optimization steps)}
+\label{tab:complexity}
+\centering
+\begin{tabular}{lccc}
+\hline
+\textbf{Method} & \textbf{Time (Sensitivity)} & \textbf{Time (Allocation)} & \textbf{Space Overhead} \\
+\hline
+Uniform (PTQ) & $O(1)$ & $O(1)$ & $O(1)$ \\
+AdaRound \cite{nagel2020adaround} & $O(N_{\mathrm{iter}} \cdot P)$ & $O(1)$ & $O(P)$ \\
+BRECQ \cite{li2021brecq} & $O(N_{\mathrm{iter}} \cdot P)$ & $O(1)$ & $O(P)$ \\
+ECQ$^{\mathrm{x}}$ \cite{becking2022ecq} & $O(N_{\mathrm{cal}} \cdot P)$ & $O(P \log P)$ & $O(P)$ \\
+Mix-QViT \cite{ranjan2025mixqvit} & $O(N_{\mathrm{cal}} \cdot P)$ & $O(L)$ & $O(L)$ \\
+\textbf{EAQ (ours)} & $O(N_{\mathrm{cal}} \cdot P)$ & $O(L)$ & $O(L)$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{remark}[Time and space complexity]
+\emph{Time.} EAQ adds $O(N_{\mathrm{cal}})$ backward passes for sensitivity estimation, plus $O(L)$ arithmetic for the closed-form allocation \eqref{eq:alloc} (or an $O(L\log\frac1\epsilon)$ bisection for the generalised allocation \eqref{eq:alloc-gen}). This is extremely fast (taking less than a minute on CPU) compared to AdaRound or BRECQ, which run iterative optimization over thousands of steps. During inference, EAQ introduces zero computational overhead (0 additional FLOPs) because it compiles to standard mixed-precision layers.
+
+\emph{Space.} The sensitivity estimator accumulates only one scalar $\hat\omega_l$ per layer, using $O(L)$ additional storage. It never stores second-order Hessians or parameter-level rounding variables, achieving significant memory savings over methods that require $O(P)$ auxiliary parameters.
+\end{remark}
