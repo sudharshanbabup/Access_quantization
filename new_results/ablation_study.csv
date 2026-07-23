@@ -1,4 +1,0 @@
-Method,Allocation (Random),Allocation (Magnitude),Allocation (EAQ - Taylor)
-Saliency,0.5191,0.5836,0.5879
-IG,0.725,0.7913,0.8018
-GradCAM,0.94,0.9688,0.9715

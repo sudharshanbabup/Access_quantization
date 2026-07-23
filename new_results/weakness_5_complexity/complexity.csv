@@ -1,7 +1,0 @@
-Method,Time (Sensitivity),Time (Allocation),Space Overhead,Additional FLOPs during Inference
-Uniform (PTQ),O(1),O(1),O(1),0
-AdaRound,O(N_iter * P),O(1),O(P),0
-BRECQ,O(N_iter * P),O(1),O(P),0
-ECQ^x,O(N_cal * P),O(P log P),O(P),0
-Mix-QViT,O(N_cal * P),O(L),O(L),0
-EAQ (ours),O(N_cal * P),O(L),O(L),0
