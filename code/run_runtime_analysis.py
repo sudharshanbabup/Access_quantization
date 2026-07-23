@@ -20,8 +20,8 @@ np.random.seed(0)
 torch.set_num_threads(2)
 DEV = "cpu"
 
-OUT_DIR = "/Users/sudharshanbabupandava/JioCloud/CMR University/Research/Ravi Saidala/Antigravity_12/results"
-REV_DIR = "/Users/sudharshanbabupandava/JioCloud/CMR University/Research/Ravi Saidala/Antigravity_12/revisions"
+OUT_DIR = "./results"
+REV_DIR = "./revisions"
 os.makedirs(OUT_DIR, exist_ok=True)
 os.makedirs(REV_DIR, exist_ok=True)
 
@@ -91,7 +91,9 @@ def count_flops(model, input_size):
     return flops
 
 def main():
-    datasets_base_dir = "/Users/sudharshanbabupandava/JioCloud/CMR University/Research/Ravi Saidala/Ravi_Saidala_v3/datasets_v3"
+    datasets_base_dir = "../Ravi_Saidala_v3/datasets_v3"
+    if not os.path.exists(datasets_base_dir):
+        datasets_base_dir = "./datasets"
     
     # ------------------ 1. CIFAR-10 Setup ------------------
     cifar_model = SmallResNet(num_classes=10, widths=(32, 64, 128)).to(DEV)
@@ -264,11 +266,15 @@ def main():
     # Copy pre-computed metric summaries from Antigravity_9 to results folder for completeness
     try:
         import shutil
-        shutil.copy("/Users/sudharshanbabupandava/JioCloud/CMR University/Research/Ravi Saidala/Antigravity_9/results/CIFAR-10_metrics.csv", os.path.join(OUT_DIR, "CIFAR-10_metrics.csv"))
-        shutil.copy("/Users/sudharshanbabupandava/JioCloud/CMR University/Research/Ravi Saidala/Antigravity_9/results/CIFAR-10_eaq.csv", os.path.join(OUT_DIR, "CIFAR-10_eaq.csv"))
-        shutil.copy("/Users/sudharshanbabupandava/JioCloud/CMR University/Research/Ravi Saidala/Antigravity_9/results/ImageNette_metrics.csv", os.path.join(OUT_DIR, "ImageNette_metrics.csv"))
-        shutil.copy("/Users/sudharshanbabupandava/JioCloud/CMR University/Research/Ravi Saidala/Antigravity_9/results/ImageNette_eaq.csv", os.path.join(OUT_DIR, "ImageNette_eaq.csv"))
-        print("\nPre-computed metric logs copied to Antigravity_12/results/.")
+        src_dir = "../Antigravity_9/results"
+        if os.path.exists(src_dir):
+            shutil.copy(os.path.join(src_dir, "CIFAR-10_metrics.csv"), os.path.join(OUT_DIR, "CIFAR-10_metrics.csv"))
+            shutil.copy(os.path.join(src_dir, "CIFAR-10_eaq.csv"), os.path.join(OUT_DIR, "CIFAR-10_eaq.csv"))
+            shutil.copy(os.path.join(src_dir, "ImageNette_metrics.csv"), os.path.join(OUT_DIR, "ImageNette_metrics.csv"))
+            shutil.copy(os.path.join(src_dir, "ImageNette_eaq.csv"), os.path.join(OUT_DIR, "ImageNette_eaq.csv"))
+            print("\nPre-computed metric logs copied to results/.")
+        else:
+            print("\nPre-computed metric logs already preserved in results/.")
     except Exception as e:
         print(f"Error copying pre-computed logs: {e}")
 

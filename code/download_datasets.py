@@ -54,7 +54,9 @@ def download_imagenette(dest_dir):
         print("ImageNette already extracted.")
 
 if __name__ == "__main__":
-    base_datasets_dir = "/Users/sudharshanbabupandava/JioCloud/CMR University/Research/Ravi Saidala/Ravi_Saidala_v3/datasets_v3"
+    base_datasets_dir = "../Ravi_Saidala_v3/datasets_v3"
+    if not os.path.exists(os.path.dirname(base_datasets_dir)):
+        base_datasets_dir = "./datasets"
     os.makedirs(base_datasets_dir, exist_ok=True)
     
     download_cifar10(base_datasets_dir)

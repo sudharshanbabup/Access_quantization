@@ -25,7 +25,7 @@ np.random.seed(0)
 torch.set_num_threads(2)
 DEV = "cpu"
 
-OUT_DIR = "/Users/sudharshanbabupandava/JioCloud/CMR University/Research/Ravi Saidala/Antigravity_9/results/"
+OUT_DIR = "./results/"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 BITS = [8, 6, 5, 4, 3, 2]
@@ -221,9 +221,14 @@ def evaluate_acc(model, loader):
 
 # --- Train CIFAR-10 Model ---
 def train_cifar10(train_loader, test_loader):
-    print("Training SmallResNet on CIFAR-10...")
-    # Scale width to (32, 64, 128) to hit ~80% baseline accuracy
     model = SmallResNet(num_classes=10, widths=(32, 64, 128)).to(DEV)
+    checkpoint_path = "./code/cifar10_model.pt"
+    if os.path.exists(checkpoint_path):
+        print("Loading pre-trained CIFAR-10 model from checkpoint...")
+        model.load_state_dict(torch.load(checkpoint_path, map_location=DEV))
+        return model
+
+    print("Training SmallResNet on CIFAR-10...")
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, 25)
     crit = nn.CrossEntropyLoss()
@@ -240,11 +245,16 @@ def train_cifar10(train_loader, test_loader):
         sched.step()
         acc = evaluate_acc(model, test_loader)
         print(f"CIFAR-10 Epoch {ep+1:2d} test_acc {acc:.4f} t {time.time()-t0:.1f}s")
+    
+    torch.save(model.state_dict(), checkpoint_path)
+    print(f"Saved trained model checkpoint to {checkpoint_path}")
     return model
 
 def main():
     # Read datasets directly from Ravi_Saidala_v3
-    datasets_base_dir = "/Users/sudharshanbabupandava/JioCloud/CMR University/Research/Ravi Saidala/Ravi_Saidala_v3/datasets_v3"
+    datasets_base_dir = "../Ravi_Saidala_v3/datasets_v3"
+    if not os.path.exists(datasets_base_dir):
+        datasets_base_dir = "./datasets"
     
     # ------------------ 1. CIFAR-10 Setup ------------------
     cifar_transform = transforms.Compose([

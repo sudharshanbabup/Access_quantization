@@ -11,8 +11,8 @@ plt.rcParams.update({
     "axes.spines.top": False, "axes.spines.right": False
 })
 
-R = "/Users/sudharshanbabupandava/JioCloud/CMR University/Research/Ravi Saidala/Antigravity_9/results/"
-F = "/Users/sudharshanbabupandava/JioCloud/CMR University/Research/Ravi Saidala/Antigravity_9/paper_v10/figs/"
+R = "./results/"
+F = "./paper/figs/"
 os.makedirs(F, exist_ok=True)
 
 METH = ["Saliency", "IG", "GradCAM", "Occlusion"]
